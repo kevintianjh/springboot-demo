@@ -1,20 +1,24 @@
 package kevintian.springbootdemo.repository;
 
 import kevintian.springbootdemo.entity.User;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class UserRepositoryTest {
+class UserRepositoryTest {
 
     @Autowired private UserRepository userRepository;
 
+    @BeforeEach
     void setUp() {
         this.userRepository.deleteAll();
     }
 
+    @AfterEach
     void cleanUp() {
         this.userRepository.deleteAll();
     }
