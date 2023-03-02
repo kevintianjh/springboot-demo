@@ -13,7 +13,7 @@ class TestJwtService {
     private JwtService jwtService;
 
     @Test
-    void test1() {
+    void generateTokenTest1() {
         //test data
         String userIdStr = "16";
         String roles = "ROLE_USER,ROLE_ADMIN";

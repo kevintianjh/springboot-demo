@@ -2,11 +2,19 @@ package kevintian.springbootdemo.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.Response;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+
+import javax.print.attribute.standard.Media;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -14,45 +22,55 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public class WebClientController {
 
-    @GetMapping("/test/add")
-    public String addFunction(Integer int1, Integer int2) {
+    private WebClient webClient;
+    private String baseUrl = "http://localhost:8081";
 
-        WebClient client = WebClient.create("http://localhost:8081");
+    @Autowired
+    public WebClientController(WebClient webClient) {
+        this.webClient = webClient;
+    }
 
-        Mono<String> ret = client
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/test/add")
-                        .queryParam("int1", int1)
-                        .queryParam("int2", int2)
-                        .build())
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    @PostMapping("/test/add")
+    public ResponseEntity<String> addFunction(@RequestBody Map<String,Integer> params) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        String bodyValue = objectMapper.writeValueAsString(params);
+
+        if(!(params.containsKey("int1") && params.containsKey("int2"))) {
+            return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
+        }
+
+        Mono<String> ret = this.webClient
+                .post()
+                .uri(this.baseUrl+ "/test/add")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(bodyValue)
                 .retrieve()
                 .bodyToMono(String.class);
 
-        return ret.block();
+        return new ResponseEntity<>(ret.block(), HttpStatus.OK);
     }
 
     @GetMapping("/test/concat")
-    public String concatFunction(String str1, String str2) throws JsonProcessingException {
-        WebClient client = WebClient.create("http://localhost:8081");
+    public ResponseEntity<String> concatFunction(String str1, String str2) throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String, String> bodyValues = new HashMap<>();
         bodyValues.put("str1", str1);
         bodyValues.put("str2", str2);
 
-        Mono<String> ret = client
+        Mono<String> ret = this.webClient
                 .post()
-                .uri("/test/concat")
+                .uri(this.baseUrl + "/test/concat")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(objectMapper.writeValueAsString(bodyValues))
                 .retrieve()
                 .bodyToMono(String.class);
 
-        CompletableFuture<String> p1 = CompletableFuture.supplyAsync(ret::block);
+        CompletableFuture<String> retFuture = CompletableFuture.supplyAsync(ret::block);
 
-        return p1.join();
-
-        //hello this is a comment
-        //this is another comment
+        return new ResponseEntity<>(retFuture.get(), HttpStatus.OK);
     }
 }

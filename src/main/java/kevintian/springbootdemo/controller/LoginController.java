@@ -37,8 +37,14 @@ public class LoginController {
 	@PostMapping("/login")
 	public ResponseEntity<String> login(@RequestBody Map<String,String> params) { 
 		
-		String email = params.get("email").trim().toLowerCase();
+		String email = params.get("email");
 		String password = params.get("password");
+
+		if(email == null) {
+			return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
+		}
+
+		email = email.trim().toLowerCase();
 		
 		if(password == null) {
 			return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
@@ -57,10 +63,24 @@ public class LoginController {
 	@PostMapping("/register")
 	public ResponseEntity<Object> register(@RequestBody Map<String,String> params) {
 		
-		String email = params.get("email").trim().toLowerCase();
+		String email = params.get("email");
 		String password = params.get("password");
+
+		if(email == null) {
+			return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
+		}
+
+		email = email.trim().toLowerCase();
+
+		if(!this.userService.validateEmail(email)) {
+			return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
+		}
 		
-		if(password == null || !this.userService.validatePassword(password)) {
+		if(password == null) {
+			return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
+		}
+
+		if(!this.userService.validatePassword(password)) {
 			return new ResponseEntity<>("", HttpStatus.BAD_REQUEST);
 		}
 		

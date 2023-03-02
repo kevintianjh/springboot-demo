@@ -21,4 +21,8 @@ public class UserService {
 	public boolean validatePassword(String password) { 
 		return password != null && password.length() >= 8 && password.length() <= 20;
 	}
+
+	public boolean validateEmail(String email) {
+		return email != null && email.matches("[\\w]+@[\\w]+\\.[\\w]+(\\.[\\w]+)?");
+	}
 }
