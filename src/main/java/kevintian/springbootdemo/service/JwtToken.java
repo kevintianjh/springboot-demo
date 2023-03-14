@@ -1,5 +1,6 @@
 package kevintian.springbootdemo.service;
  
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.RequestScope; 
@@ -27,5 +28,10 @@ public class JwtToken {
 	
 	public String getRoles() {
 		return this.claims.get("roles", String.class);
+	}
+
+	@PreDestroy
+	public void preDestroy() {
+		System.out.println("This object is destroyed!");
 	}
 }

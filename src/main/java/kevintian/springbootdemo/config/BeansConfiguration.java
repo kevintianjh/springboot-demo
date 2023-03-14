@@ -17,7 +17,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 @EnableWebSecurity
 public class BeansConfiguration {
-	 
 	@Bean
 	public UserDetailsService userDetailsService(UserService userService) {
 		return userService::findByEmail;
@@ -45,5 +44,15 @@ public class BeansConfiguration {
 	@Bean
 	public WebClient webClient() {
 		return WebClient.create();
+	}
+
+	@Bean(name = "hello")
+	public String getString() {
+		return "Hello String";
+	}
+
+	@Bean(name = "hello2")
+	public String getString2() {
+		return "Hello 2 String";
 	}
 }

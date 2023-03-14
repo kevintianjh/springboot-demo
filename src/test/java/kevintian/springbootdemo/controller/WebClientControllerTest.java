@@ -23,8 +23,6 @@ import java.util.Map;
 @ExtendWith(SpringExtension.class)
 class WebClientControllerTest {
 
-    //comment
-
     private static MockWebServer mockWebServer;
 
     @Autowired private MockMvc mockMvc;
