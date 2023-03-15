@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
+import kevintian.springbootdemo.ClassA;
+import kevintian.springbootdemo.StaticVarDemo;
 import kevintian.springbootdemo.controller.dto.AuthCallbackRsp;
 import kevintian.springbootdemo.controller.dto.ValidateTokenRsp;
 import kevintian.springbootdemo.service.JwtService;
@@ -89,5 +91,25 @@ public class TestController {
         authCallbackRsp.token = this.jwtService.generateToken(Integer.parseInt(authCallbackRsp.userId), authCallbackRsp.roles);
 
         return ResponseEntity.ok(authCallbackRsp);
+    }
+
+    ClassA classA = StaticVarDemo.getInstance();
+
+    @GetMapping("/test/static")
+    public String testStatic() throws Exception {
+        classA.count++;
+        classA.count++;
+        classA.count++;
+
+        CompletableFuture.runAsync(() -> {
+            classA.count++;
+            classA.count++;
+            classA.count++;
+        });
+
+        int finalCount = classA.count;
+        classA.count = 0;
+
+        return "count is " + finalCount;
     }
 }
