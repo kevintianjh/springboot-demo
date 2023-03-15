@@ -1,96 +1,202 @@
 package kevintian.springbootdemo;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-import org.springframework.web.context.annotation.RequestScope;
+import org.slf4j.MDC;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.client.config.SdkAdvancedAsyncClientOption;
-import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.cloudwatch.model.CloudWatchException;
-import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsAsyncClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
-import software.amazon.awssdk.services.cloudwatchlogs.model.CreateLogStreamRequest;
-import software.amazon.awssdk.services.cloudwatchlogs.model.InputLogEvent;
-import software.amazon.awssdk.services.cloudwatchlogs.model.PutLogEventsRequest;
-import software.amazon.awssdk.services.cloudwatchlogs.model.PutLogEventsResponse;
-
+import software.amazon.awssdk.services.cloudwatchlogs.model.*;
 import java.net.URI;
-import java.time.Duration;
-import java.time.LocalDate;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 public class ActivityTracer {
 
+    public static final String AUDIT_LOGS_GROUP_NAME = "";
+    public static final String ERROR_LOGS_GROUP_NAME = "";
+
+    private static ThreadLocal<ActivityTracer> threadLocalActivityTracer = new ThreadLocal<>();
+
+    private List<InputLogEvent> auditInputLogEventList;
+
+    private List<InputLogEvent> errorInputLogEventList;
+
+    private String appName;
+
+    private String apiName;
+
+    private String userId;
+
+    private String traceId;
+
+    private long startTime;
+
     static final CloudWatchLogsClient logsClient = CloudWatchLogsClient.builder()
             .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
-                    "AKIA3XMORVFIMBCBYAIO",
-                    "Plb5jazl2aITbhZLpX06VVL/ekZuRR1dw1yYAs6T")))
+                    "",
+                    "")))
             .overrideConfiguration(ClientOverrideConfiguration.builder().build())
             .endpointOverride(URI.create("https://logs.ap-southeast-1.amazonaws.com"))
             .region(Region.AP_SOUTHEAST_1)
             .build();
 
-    public void shutdown() throws Exception {
-        putCWLogEvents("test_group_1", "test_stream_1");
-    }
+    private static ActivityTracer getInstance(String appName, String apiName, String userId, String traceId) {
 
-    public void putCWLogEvents(String logGroupName, String streamName) throws Exception {
-
-        int loopCount = 0;
-
-        while(loopCount <= 1) {
-            try {
-                InputLogEvent inputLogEvent = InputLogEvent.builder()
-                        .message("my name is Kevin TIAN!")
-                        .timestamp(System.currentTimeMillis())
-                        .build();
-
-                PutLogEventsRequest putLogEventsRequest = PutLogEventsRequest.builder()
-                        .logEvents(List.of(inputLogEvent))
-                        .logGroupName(logGroupName)
-                        .logStreamName(streamName)
-                        .build();
-
-                logsClient.putLogEvents(putLogEventsRequest);
-
-                break;
-
-            } catch (Exception e) {
-
-                if(loopCount < 1 &&
-                        e.getMessage() != null &&
-                        e.getMessage().contains("The specified log stream does not exist")) {
-
-                    logsClient.createLogStream(
-                            CreateLogStreamRequest.builder()
-                                    .logGroupName(logGroupName)
-                                    .logStreamName(streamName)
-                                    .build());
-
-                    loopCount++;
-                }
-                else {
-                    throw e;
-                }
-            }
+        if(ActivityTracer.threadLocalActivityTracer.get() == null) {
+            ActivityTracer instance = new ActivityTracer(appName, apiName, userId, traceId);
+            ActivityTracer.threadLocalActivityTracer.set(instance);
         }
 
-
+        return ActivityTracer.threadLocalActivityTracer.get();
     }
 
-    public static void main(String[] args) throws Exception {
-        ActivityTracer activityTracer = new ActivityTracer();
-        activityTracer.putCWLogEvents("test_group_1", "test_stream_3");
+    private ActivityTracer(String appName, String apiName, String userId, String traceId) {
+        this.appName = appName;
+        this.apiName = apiName;
+        this.userId = userId;
+        this.traceId = traceId;
+        this.startTime = System.currentTimeMillis();
+        this.auditInputLogEventList = new ArrayList<>();
+        this.errorInputLogEventList = new ArrayList<>();
+    }
+
+    public void info(String desc) {
+        Step step = new Step();
+        step.setSTEP((this.auditInputLogEventList.size()+1) + ") " + desc);
+        step.setTRACEID(this.traceId);
+        step.setAPI(this.apiName);
+        step.setUUID(this.userId);
+
+        InputLogEvent inputLogEvent = InputLogEvent.builder()
+                .message(JsonUtil.convertToString(step))
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        this.auditInputLogEventList.add(inputLogEvent);
+    }
+
+    public void error(String desc) {
+        Step step = new Step();
+        step.setSTEP((this.auditInputLogEventList.size()+1) + ") " + desc);
+        step.setTRACEID(this.traceId);
+        step.setAPI(this.apiName);
+        step.setUUID(this.userId);
+
+        InputLogEvent inputLogEvent = InputLogEvent.builder()
+                .message(JsonUtil.convertToString(step))
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        this.auditInputLogEventList.add(inputLogEvent);
+        this.errorInputLogEventList.add(inputLogEvent);
+    }
+
+    public static void flush() {
+        ActivityTracer instance = ActivityTracer.threadLocalActivityTracer.get();
+
+        if(instance != null) {
+            instance.flushInstance();
+            ActivityTracer.threadLocalActivityTracer.remove();
+        }
+    }
+
+    private void flushInstance() {
+        MDC.clear();
+
+        Thread thread = new Thread(() -> {
+            //logger.info("Starting thread to save logs into cloudwatch");
+
+            String format = this.appName + "_%s_" +
+                    (new SimpleDateFormat("yyyyMMdd").format(new Date(this.startTime)));
+
+            try {
+                //Save audit logs
+                if(!this.auditInputLogEventList.isEmpty()) {
+                    if(!saveLogs(this.auditInputLogEventList, AUDIT_LOGS_GROUP_NAME,
+                            String.format(format, "audit_logs"))) {
+
+                        createStreamAndSaveLogs(this.auditInputLogEventList, AUDIT_LOGS_GROUP_NAME,
+                                String.format(format, "audit_logs"));
+                    }
+                }
+
+                //Empty list
+                this.auditInputLogEventList.clear();
+
+                //Save error logs
+                if(!this.errorInputLogEventList.isEmpty() &&
+                        !saveLogs(this.errorInputLogEventList, ERROR_LOGS_GROUP_NAME,
+                                String.format(format, "error_logs"))) {
+
+                    createStreamAndSaveLogs(this.errorInputLogEventList, ERROR_LOGS_GROUP_NAME,
+                            String.format(format, "error_logs"));
+                }
+
+                //Empty list
+                this.errorInputLogEventList.clear();
+
+                //Logging
+                //logger.info("Time Taken : " + (System.currentTimeMillis() - startTime) + " ms.");
+            }
+            catch(Exception e) {
+                //logger.error("Error while saving logs into cloudwatch", e);
+            }
+
+            //logger.info("Ending thread to save logs into cloudwatch");
+        });
+
+        thread.start();
+    }
+
+    boolean saveLogs(List<InputLogEvent> inputLogEventList, String logGroupName, String logStreamName) {
+
+        try {
+            PutLogEventsRequest putLogEventsRequest = PutLogEventsRequest.builder()
+                    .logEvents(inputLogEventList)
+                    .logGroupName(logGroupName)
+                    .logStreamName(logStreamName)
+                    .build();
+
+            logsClient.putLogEvents(putLogEventsRequest);
+            return true;
+        }
+        catch(ResourceNotFoundException e) {
+            if(e.getMessage() != null && e.getMessage().contains("The specified log stream does not exist")) {
+                //logger.info("Log stream \"" + logStreamName + "\" does not exist");
+                return false;
+            }
+            else {
+                throw e;
+            }
+        }
+    }
+
+    void createStreamAndSaveLogs(List<InputLogEvent> inputLogEventList, String logGroupName, String logStreamName) {
+
+        //logger.info("Creating log stream \"" + logStreamName + "\"");
+
+        logsClient.createLogStream(
+                CreateLogStreamRequest.builder()
+                        .logGroupName(logGroupName)
+                        .logStreamName(logStreamName)
+                        .build());
+
+        if(!saveLogs(inputLogEventList, logGroupName, logStreamName)) {
+            //logger.error("Failed to create log stream \"" + logStreamName + "\"" after attempt);
+        }
+    }
+
+    public static void main(String[] args) {
+        ActivityTracer activityTracer = ActivityTracer
+                .getInstance("PE", "GET /users/profiles", "user-id", "trace-id");
+
+        activityTracer.info("Run stuff");
+        activityTracer.error("something went wrong");
+        activityTracer.info("Run some stuff again");
+
+        ActivityTracer.flush();
     }
 }
