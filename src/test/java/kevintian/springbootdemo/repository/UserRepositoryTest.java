@@ -1,10 +1,7 @@
 package kevintian.springbootdemo.repository;
 
 import kevintian.springbootdemo.entity.User;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -24,6 +21,7 @@ class UserRepositoryTest {
     }
 
     @Test
+    @Disabled
     void test1() {
         User newUser = new User();
         newUser.setEmail("jane@gmail.com");

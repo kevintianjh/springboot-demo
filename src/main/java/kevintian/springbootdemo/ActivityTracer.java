@@ -6,6 +6,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
+import software.amazon.awssdk.services.cloudwatchlogs.endpoints.CloudWatchLogsEndpointProvider;
 import software.amazon.awssdk.services.cloudwatchlogs.model.*;
 import java.net.URI;
 import java.text.SimpleDateFormat;
@@ -34,14 +35,22 @@ public class ActivityTracer {
 
     private long startTime;
 
-    static final CloudWatchLogsClient logsClient = CloudWatchLogsClient.builder()
-            .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
-                    "",
-                    "")))
-            .overrideConfiguration(ClientOverrideConfiguration.builder().build())
-            .endpointOverride(URI.create("https://logs.ap-southeast-1.amazonaws.com"))
-            .region(Region.AP_SOUTHEAST_1)
-            .build();
+    static CloudWatchLogsClient logsClient;
+
+    static {
+        CloudWatchLogsEndpointProvider cloudWatchLogsEndpointProvider = CloudWatchLogsEndpointProvider.defaultProvider();
+
+        logsClient = CloudWatchLogsClient.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
+                        "AKIA3XMORVFIBB6CPZXW",
+                        "KPjFprqhaLAf/LnXixbMPHBNmVNGBKSMAGAh1Vsc")))
+                .endpointProvider(cloudWatchLogsEndpointProvider)
+                .overrideConfiguration(ClientOverrideConfiguration.builder().build())
+                .endpointOverride(URI.create("https://logs.ap-southeast-1.amazonaws.com"))
+                .region(Region.AP_SOUTHEAST_1)
+                .build();
+    }
+
 
     private static ActivityTracer getInstance(String appName, String apiName, String userId, String traceId) {
 
